@@ -2,8 +2,8 @@ eval_dataset:
   dataset:
     name: paired-image-folders
     args:
-      root_path_1: UDIS-D/testing/input1/
-      root_path_2: UDIS-D/testing/input2/
+      root_path_1: /home/test/LIVA/XZP/ImageStitch/Residual-Elastic-Warp/nuScenes_tmp2/input4
+      root_path_2: /home/test/LIVA/XZP/ImageStitch/Residual-Elastic-Warp/nuScenes_tmp2/input3
 
   wrapper:
     name: paired-images
@@ -11,5 +11,4 @@ eval_dataset:
 
   batch_size: 1
 
-
-resume : save/_TCell/epoch-last.pth
+resume: /home/test/LIVA/XZP/ImageStitch/Residual-Elastic-Warp/pretrained/rewarp.pth

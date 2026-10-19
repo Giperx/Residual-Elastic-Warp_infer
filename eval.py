@@ -12,6 +12,9 @@ import torch.nn.functional as F
 from tqdm import tqdm
 from torch.utils.data import DataLoader
 from torchvision.transforms import GaussianBlur
+import torch
+if not hasattr(torch, 'gesv'):
+    torch.gesv = torch.solve
 
 from skimage.metrics import peak_signal_noise_ratio as compare_psnr
 
@@ -52,7 +55,52 @@ def linear_blender(ref, tgt, ref_m, tgt_m, mask=False):
     stit = ref * mask1 + tgt * mask2
 
     return stit
+def find_max_valid_rectangle(mask):  # mask: [H, W], 0/1 float tensor
+    H, W = mask.shape
+    mask = mask.int()
 
+    # 高度累积：将 0/1 mask 转为柱状图（每列往下累加）
+    height = torch.zeros_like(mask)
+    for i in range(H):
+        if i == 0:
+            height[i] = mask[i]
+        else:
+            height[i] = height[i-1] * mask[i] + mask[i]
+
+    max_area = 0
+    max_box = (0, 0, 0, 0)  # top, bottom, left, right
+
+    for i in range(H):
+        h_row = height[i]
+        stack = []
+        left = [0] * W
+        right = [W] * W
+
+        # 单调栈求左边界
+        for j in range(W):
+            while stack and h_row[stack[-1]] >= h_row[j]:
+                stack.pop()
+            left[j] = stack[-1] + 1 if stack else 0
+            stack.append(j)
+
+        # 单调栈求右边界
+        stack.clear()
+        for j in range(W - 1, -1, -1):
+            while stack and h_row[stack[-1]] >= h_row[j]:
+                stack.pop()
+            right[j] = stack[-1] if stack else W
+            stack.append(j)
+
+        # 面积计算
+        for j in range(W):
+            area = h_row[j] * (right[j] - left[j])
+            if area > max_area:
+                max_area = area
+                top = i - h_row[j] + 1
+                bottom = i
+                max_box = (top, bottom, left[j], right[j] - 1)
+
+    return max_box  # top, bottom, left, right
 
 def eval(loader, IHN, model, args):
     model.eval()
@@ -113,11 +161,11 @@ def eval(loader, IHN, model, args):
         T_tgt = torch.inverse(H).double() @ translation.cuda()
 
         sizes = (img_h, img_w)
-        if img_h > 5000 or img_w > 5000:
-            failures += 1
-            print('Fail; Evaluated Size: {}X{}'.format(img_h, img_w))
-            flows, disps= None, None
-            continue
+        # if img_h > 5000 or img_w > 5000:
+        #     failures += 1
+        #     print('Fail; Evaluated Size: {}X{}'.format(img_h, img_w))
+        #     flows, disps= None, None
+        #     continue
 
 
         # Image Alignment
@@ -171,10 +219,47 @@ def eval(loader, IHN, model, args):
         psnr = compare_psnr(ref_ovl, tgt_ovl, data_range=1.)
         stit += (1-(mask_r + mask_t).clamp(0,1))
 
+        save_dir = "./stitched_results"
+        os.makedirs(save_dir, exist_ok=True)
+
+        # 保存图像（假设每次处理一个 batch）
+        import torchvision.utils as vutils
+        for i in range(stit.shape[0]):
+            vutils.save_image(stit[i], f"{save_dir}/stitched_{i}.png")
         if ovl_ratio <= 0.3: collection_30.append(psnr)
         elif ovl_ratio > 0.3 and ovl_ratio <= 0.6 : collection_60.append(psnr)
         elif ovl_ratio > 0.6: collection_100.append(psnr)
         collections = collection_30 + collection_60 + collection_100
+
+
+        # 合并两个掩码，计算有效区域
+        mask_combined = ((mask_r + mask_t) > 0).float()  # [B, 1, H, W]
+        stit_clipped = stit.clone()  # 防止原图被改动
+
+        save_dir = "./stitched_cropped"
+        os.makedirs(save_dir, exist_ok=True)
+
+        for i in range(stit.shape[0]):
+            mask = mask_combined[i, 0]  # 取第 i 张图像的 mask，shape [H, W]
+
+            # 找到非零区域
+            nonzero = mask.nonzero(as_tuple=False)  # shape [N, 2]，每行为 (y, x)
+
+            if nonzero.shape[0] == 0:
+                print(f"[Warning] image {i} has no valid region, skipping.")
+                continue
+
+            # 得到边界框 (top, left, bottom, right)
+            top = nonzero[:, 0].min().item()
+            bottom = nonzero[:, 0].max().item()
+            left = nonzero[:, 1].min().item()
+            right = nonzero[:, 1].max().item()
+
+            # 裁剪图像，stit[i] 是 [C, H, W]
+            cropped = stit_clipped[i, :, top:bottom+1, left:right+1]
+
+            # 保存图像
+            vutils.save_image(cropped, f"{save_dir}/stitched_cropped_{i}.png")
 
         pbar.set_description_str(
             desc="[Evaluation] PSNR:{:.4f}/{:.4f}/{:.4f}, Avg PSNR: {:.4f}, Failures:{}".format(
@@ -188,8 +273,11 @@ def eval(loader, IHN, model, args):
         flows, disps= None, None
 
 def main(config, args):
-    sv_file = torch.load(config['resume'])
-
+    # sv_file = torch.load(config['resume'])
+    # device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    # sv_file = torch.load(config['resume'], map_location=device)
+    sv_file = torch.load(config['resume'], map_location='cuda:0')
+    
     model = models.make(sv_file['T_model'], load_sd=True).cuda()
     H_model = models.make(sv_file['H_model'], load_sd=True).cuda()
 
@@ -206,7 +294,7 @@ def main(config, args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--config')
-    parser.add_argument('--gpu', default='0')
+    parser.add_argument('--gpu', default='3')
     args = parser.parse_args()
 
     os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
