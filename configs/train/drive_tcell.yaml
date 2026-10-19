@@ -20,6 +20,7 @@ train_dataset:
   wrapper:
     name: paired-images
     args: {}
+  # T-Cell official batch. H-Cell finetuning passes 16.
   batch_size: 8
 
 valid_dataset:

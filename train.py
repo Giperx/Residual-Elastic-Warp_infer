@@ -27,7 +27,7 @@ def run_stage(stage, args, pretrained):
         "--epochs",
         str(args.epochs),
         "--batch-size",
-        str(args.batch_size),
+        str(args.hcell_batch if stage == "hcell" else args.tcell_batch),
         "--workers",
         str(args.workers),
         "--pretrained",
@@ -47,7 +47,8 @@ def main():
     parser.add_argument("--gpu", default="0")
     parser.add_argument("--stage", choices=("both", "hcell", "tcell"), default="both")
     parser.add_argument("--epochs", type=int, required=True)
-    parser.add_argument("--batch-size", type=int, default=8)
+    parser.add_argument("--hcell-batch", type=int, default=16, help="official H-Cell training batch")
+    parser.add_argument("--tcell-batch", type=int, default=8, help="official T-Cell training batch")
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--pretrained", default=str(ROOT / "pretrained" / "rewarp.pth"))
     parser.add_argument("--samples", type=int, default=0)

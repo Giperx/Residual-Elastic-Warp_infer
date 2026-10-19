@@ -118,6 +118,8 @@ def main():
         spec["dataset"]["args"]["samples_per_epoch"] = args.samples
     if args.batch_size:
         spec["batch_size"] = args.batch_size
+    elif args.stage == "hcell":
+        spec["batch_size"] = 16
     config["epoch_max"] = args.epochs if args.epochs else defaults.get(name, config["epoch_max"])
     if args.pretrained:
         config["pretrained"] = args.pretrained
