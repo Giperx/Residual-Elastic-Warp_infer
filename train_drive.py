@@ -4,6 +4,7 @@
 The original loop is unchanged: two images, frozen HCell, overlap L1 on the
 elastic warp. Camera 5 is the reference. The other image is camera 4 or camera
 3. Each epoch reshuffles a random subset of training scenes and frames.
+Validation is not run.
 
     python train_drive.py --dataset nuscenes --gpu 1
     python train_drive.py --dataset lyft1920 --steps 20 --gpu 1
@@ -81,12 +82,12 @@ def main():
         config = yaml.load(handle, Loader=yaml.FullLoader)
     name = args.dataset or config.get("dataset", "nuscenes")
     defaults = {"nuscenes": 1, "lyft": 3, "widedrive3": 3}
-    for spec in (config["train_dataset"], config["valid_dataset"]):
-        spec["dataset"]["args"]["dataset"] = name
-        if args.samples and spec is config["train_dataset"]:
-            spec["dataset"]["args"]["samples_per_epoch"] = args.samples
-        if args.batch_size:
-            spec["batch_size"] = args.batch_size
+    spec = config["train_dataset"]
+    spec["dataset"]["args"]["dataset"] = name
+    if args.samples:
+        spec["dataset"]["args"]["samples_per_epoch"] = args.samples
+    if args.batch_size:
+        spec["batch_size"] = args.batch_size
     config["epoch_max"] = args.epochs if args.epochs else defaults.get(name, config["epoch_max"])
 
     save_path = os.path.join("save", "drive_" + name)
@@ -95,7 +96,6 @@ def main():
     train_tcell.log = print
 
     train_loader = make_loader(config["train_dataset"], "train")
-    valid_loader = make_loader(config["valid_dataset"], "valid")
     h_cell, t_cell, spec_h, spec_t = load_pretrained(config["pretrained"])
     optimizer = utils.make_optimizer(t_cell.parameters(), config["optimizer"])
     print("frozen HCell, training TCell, lr {}".format(optimizer.param_groups[0]["lr"]), flush=True)
@@ -120,8 +120,6 @@ def main():
     for epoch in range(1, epochs + 1):
         leaf(train_loader).set_epoch(epoch)
         loss = train_tcell.train(train_loader, h_cell, t_cell, optimizer, epoch)
-        with torch.no_grad():
-            val_psnr = train_tcell.valid(valid_loader, h_cell, t_cell)
         spec_t = dict(spec_t)
         spec_h = dict(spec_h)
         spec_t["sd"] = t_cell.state_dict()
@@ -135,7 +133,7 @@ def main():
         torch.save(checkpoint, os.path.join(save_path, "epoch-last.pth"))
         if epoch % config.get("epoch_save", 5) == 0:
             torch.save(checkpoint, os.path.join(save_path, "epoch-{}.pth".format(epoch)))
-        print("[{}/{}] loss {:.4f} val PSNR {:.4f}".format(epoch, epochs, loss, val_psnr), flush=True)
+        print("[{}/{}] loss {:.4f}".format(epoch, epochs, loss), flush=True)
 
 
 if __name__ == "__main__":
