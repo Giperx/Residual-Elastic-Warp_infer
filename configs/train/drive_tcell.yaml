@@ -20,8 +20,7 @@ train_dataset:
   wrapper:
     name: paired-images
     args: {}
-  # Stable train batch on a 24GB 4090. 25 completes one step, then OOMs.
-  batch_size: 20
+  batch_size: 8
 
 valid_dataset:
   dataset:
