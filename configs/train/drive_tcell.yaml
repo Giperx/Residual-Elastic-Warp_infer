@@ -1,0 +1,46 @@
+# Fine-tune TCell from pretrained/rewarp.pth. HCell stays frozen.
+# One epoch shuffles every camera-5 pair (with camera 4 or camera 3).
+# Defaults, also applied by train_drive.py when --epochs is omitted:
+#   nuscenes:   1 epoch
+#   lyft:       3 epochs, lyft1920 and lyft1224 mixed
+#   widedrive3: 3 epochs
+dataset: nuscenes
+samples_per_epoch: 0
+val_samples: 256
+image_size: 512
+
+train_dataset:
+  dataset:
+    name: driving-camera-pairs
+    args:
+      dataset: nuscenes
+      split: train
+      samples_per_epoch: 0
+      image_size: 512
+  wrapper:
+    name: paired-images
+    args: {}
+  batch_size: 4
+
+valid_dataset:
+  dataset:
+    name: driving-camera-pairs
+    args:
+      dataset: nuscenes
+      split: val
+      samples_per_epoch: 256
+      image_size: 512
+  wrapper:
+    name: paired-images
+    args: {}
+  batch_size: 4
+
+pretrained: pretrained/rewarp.pth
+
+optimizer:
+  name: adamw
+  args:
+    lr: 1.e-5
+
+epoch_max: 1
+epoch_save: 1

@@ -28,7 +28,10 @@ class TCell(nn.Module):
         self.tps_grid = TpsGridGen(out_h=64, out_w=64, grid_size=int(np.sqrt(num_kp)))
 
         tmp = torch.linspace(0, 1, steps=int(np.sqrt(self.num_kp)))
-        X, Y = torch.meshgrid(tmp, tmp, indexing='xy')
+        try:
+            X, Y = torch.meshgrid(tmp, tmp, indexing='xy')
+        except TypeError:
+            Y, X = torch.meshgrid(tmp, tmp)
         self.theta = torch.stack([X,Y], dim=-1).unsqueeze(0).view(1,-1,2).cuda()
 
         self.update_ctrlpts = kp_tcell_dirichlet(input_dim=164, hidden_dim=96, thres=threshold)

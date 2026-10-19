@@ -35,7 +35,12 @@ class CorrBlock:
             corr = self.corr_pyramid[i]
             dx = torch.linspace(-r, r, 2 * r + 1)
             dy = torch.linspace(-r, r, 2 * r + 1)
-            delta = torch.stack(torch.meshgrid(dx, dy, indexing='xy'), axis=-1).to(coords.device)
+            try:
+                delta = torch.stack(torch.meshgrid(dx, dy, indexing='xy'), axis=-1)
+            except TypeError:
+                y, x = torch.meshgrid(dy, dx)
+                delta = torch.stack((x, y), axis=-1)
+            delta = delta.to(coords.device)
 
             centroid_lvl = coords.reshape(batch * h1 * w1, 1, 1, 2) / 2 ** i
             delta_lvl = delta.view(1, 2 * r + 1, 2 * r + 1, 2)
@@ -76,7 +81,12 @@ class CorrBlockSingleScale(nn.Module):
         corr = self.corr
         dx = torch.linspace(-r, r, 2 * r + 1)
         dy = torch.linspace(-r, r, 2 * r + 1)
-        delta = torch.stack(torch.meshgrid(dx, dy, indexing='xy'), axis=-1).to(coords.device)
+        try:
+            delta = torch.stack(torch.meshgrid(dx, dy, indexing='xy'), axis=-1)
+        except TypeError:
+            y, x = torch.meshgrid(dy, dx)
+            delta = torch.stack((x, y), axis=-1)
+        delta = delta.to(coords.device)
 
         centroid_lvl = coords.reshape(batch * h1 * w1, 1, 1, 2)
         delta_lvl = delta.view(1, 2 * r + 1, 2 * r + 1, 2)
