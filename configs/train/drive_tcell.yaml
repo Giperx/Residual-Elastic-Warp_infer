@@ -20,8 +20,8 @@ train_dataset:
   wrapper:
     name: paired-images
     args: {}
-  # Largest train batch that completes one finetune step on a 24GB 4090.
-  batch_size: 25
+  # Stable train batch on a 24GB 4090. 25 completes one step, then OOMs.
+  batch_size: 20
 
 valid_dataset:
   dataset:
