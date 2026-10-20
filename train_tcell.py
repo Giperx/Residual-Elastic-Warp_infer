@@ -85,9 +85,6 @@ def train(loader, HCell, TCell, optimizer, epoch, finetune=False):
     pbar = tqdm(range(len(loader)), smoothing=0.9)
     loader = iter(loader)
 
-    grid = utils.make_coordinate_grid([512,512], None)
-    grid = grid.reshape(1, 512, 512, 2)
-
     for b_id in pbar:
         batch = next(loader)
         for k, v in batch.items():
@@ -97,26 +94,40 @@ def train(loader, HCell, TCell, optimizer, epoch, finetune=False):
         tgt = batch['inp_tgt']
 
         b, c, h, w = ref.shape
+        grid = utils.make_coordinate_grid([h, w], None).unsqueeze(0)
+        ref_in = F.interpolate(ref, size=(512, 512), mode="bilinear", align_corners=False)
+        tgt_in = F.interpolate(tgt, size=(512, 512), mode="bilinear", align_corners=False)
 
-        _, disps, hinp = HCell(tgt, ref, iters_lev0=6)
-        H = utils.get_H(disps[-1].reshape(ref.shape[0],2,-1).permute(0,2,1), [*ref.shape[-2:]])
+        _, disps, hinp = HCell(tgt_in, ref_in, iters_lev0=6)
+        shift = disps[-1].reshape(ref.shape[0], 2, -1).permute(0, 2, 1).clone()
+        shift[..., 0] *= w / 512.0
+        shift[..., 1] *= h / 512.0
+        H = utils.get_H(shift, [*ref.shape[-2:]])
         H = utils.compens_H(H, [*ref.shape[-2:]])
         grid_ = grid.reshape(1, -1, 2).repeat(ref.shape[0], 1, 1)
 
         mesh_homography = utils.warp_coord(grid_, H).reshape(b,h,w,-1)
         ref_w = F.grid_sample(ref, mesh_homography, align_corners=True)
-        flows = TCell(ref_w, tgt, iters=6)
+        flows = TCell(
+            F.interpolate(ref_w, size=(512, 512), mode="bilinear", align_corners=False),
+            tgt_in,
+            iters=6,
+        )
 
         ones = torch.ones_like(ref).cuda()
-        flow_homography = (mesh_homography - grid.repeat(b,1,1,1)) * 512 / 2
+        scale = mesh_homography.new_tensor([w, h]).view(1, 1, 1, 2) / 2
+        flow_homography = (mesh_homography - grid) * scale
 
         loss = 0
         for i in range(len(flows)):
-            flow = flow_homography + flows[i]
+            flow_i = F.interpolate(flows[i].permute(0, 3, 1, 2), size=(h, w), mode="bilinear", align_corners=False).permute(0, 2, 3, 1)
+            flow_i = torch.stack((flow_i[..., 0] * w / 512.0, flow_i[..., 1] * h / 512.0), -1)
+            flow = flow_homography + flow_i
 
             grid_ = (grid.repeat(b,1,1,1).permute(0,3,1,2) + 1) / 2
-            mask, _ = utils.warp(ones, flow.permute(0,3,1,2), grid = grid_ * (h-1))
-            ref_ovl, _ = utils.warp(ref, flow.permute(0,3,1,2), grid = grid_ * (h-1))
+            grid_ = torch.stack((grid_[:, 0] * (w - 1), grid_[:, 1] * (h - 1)), 1)
+            mask, _ = utils.warp(ones, flow.permute(0,3,1,2), grid = grid_)
+            ref_ovl, _ = utils.warp(ref, flow.permute(0,3,1,2), grid = grid_)
             tgt_ovl = tgt * mask
 
             ref_ovl_samples = ref_ovl[mask.bool()]

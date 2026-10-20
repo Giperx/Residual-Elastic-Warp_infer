@@ -89,6 +89,10 @@ class DrivingCameraPairs(Dataset):
         self.samples_per_epoch = int(samples_per_epoch)
         self.seed = int(seed)
         self.split = split
+        sizes = {input_hw(name) for name in names}
+        if len(sizes) != 1:
+            raise ValueError("lyft1920 and lyft1224 have different input sizes; train them separately")
+        self.input_hw = sizes.pop()
         self.pairs = []
         for name in names:
             spec = DATASETS[name]
@@ -114,7 +118,7 @@ class DrivingCameraPairs(Dataset):
 
     def __getitem__(self, idx):
         ref_path, tgt_path = self.pairs[int(self.index[idx])]
-        return _load(ref_path, self.image_size), _load(tgt_path, self.image_size)
+        return _load(ref_path, self.input_hw), _load(tgt_path, self.input_hw)
 
 
 def _collect(image_root, scenes):
@@ -142,9 +146,18 @@ def _collect(image_root, scenes):
     return pairs
 
 
+def input_hw(name):
+    """Width, height used before the network, matching the compared model."""
+    if name == "lyft1224":
+        return (518, 434)
+    return (518, 294)
+
+
 def _load(path, size):
     image = Image.open(path).convert("RGB")
-    if image.size != (size, size):
-        image = image.resize((size, size), Image.BILINEAR)
+    if isinstance(size, int):
+        size = (size, size)
+    if image.size != tuple(size):
+        image = image.resize(tuple(size), Image.BILINEAR)
     array = np.asarray(image).astype(np.float32) / 255.0
     return array

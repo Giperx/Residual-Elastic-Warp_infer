@@ -11,6 +11,7 @@ import models
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import ExponentialLR
 
@@ -88,8 +89,10 @@ def train(loader, HCell, optimizer, epoch, finetune=False):
         ref = batch['inp_ref']
         tgt = batch['inp_tgt']
         b, c, h, w = ref.shape
+        ref_in = F.interpolate(ref, size=(512, 512), mode="bilinear", align_corners=False)
+        tgt_in = F.interpolate(tgt, size=(512, 512), mode="bilinear", align_corners=False)
 
-        flows, disps, grid_loss = HCell(tgt, ref, iters_lev0=6)
+        flows, disps, grid_loss = HCell(tgt_in, ref_in, iters_lev0=6)
 
         loss = 0
         ones = torch.ones_like(ref).cuda()
@@ -99,7 +102,9 @@ def train(loader, HCell, optimizer, epoch, finetune=False):
             if i in dropout:
                 continue
 
-            shift = disps[i].view(b, 2, -1).permute(0, 2, 1)
+            shift = disps[i].view(b, 2, -1).permute(0, 2, 1).clone()
+            shift[..., 0] *= w / 512.0
+            shift[..., 1] *= h / 512.0
             H = utils.get_H(shift, (h, w))
             H = utils.compens_H(H, size=(h, w))
 

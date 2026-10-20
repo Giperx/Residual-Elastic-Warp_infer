@@ -43,7 +43,7 @@ def run_stage(stage, args, pretrained):
 
 def main():
     parser = argparse.ArgumentParser(description="REwarp HCell then TCell finetuning")
-    parser.add_argument("--dataset", required=True, choices=("nuscenes", "lyft", "widedrive3"))
+    parser.add_argument("--dataset", required=True, choices=("nuscenes", "lyft", "lyft1920", "lyft1224", "widedrive3"))
     parser.add_argument("--gpu", default="0")
     parser.add_argument("--stage", choices=("both", "hcell", "tcell"), default="both")
     parser.add_argument("--epochs", type=int, required=True)
@@ -55,14 +55,17 @@ def main():
     parser.add_argument("--steps", type=int, default=0)
     args = parser.parse_args()
 
-    hcell_last = ROOT / "save" / f"drive_{args.dataset}" / "hcell" / "epoch-last.pth"
-    if args.stage in ("both", "hcell"):
-        run_stage("hcell", args, args.pretrained)
-    if args.stage in ("both", "tcell"):
-        pretrained = str(hcell_last if hcell_last.is_file() else args.pretrained)
-        if not hcell_last.is_file():
-            print(f"no HCell checkpoint, TCell starts from {pretrained}", flush=True)
-        run_stage("tcell", args, pretrained)
+    names = ("lyft1920", "lyft1224") if args.dataset == "lyft" else (args.dataset,)
+    for name in names:
+        args.dataset = name
+        hcell_last = ROOT / "save" / f"drive_{name}" / "hcell" / "epoch-last.pth"
+        if args.stage in ("both", "hcell"):
+            run_stage("hcell", args, args.pretrained)
+        if args.stage in ("both", "tcell"):
+            pretrained = str(hcell_last if hcell_last.is_file() else args.pretrained)
+            if not hcell_last.is_file():
+                print(f"no HCell checkpoint, TCell starts from {pretrained}", flush=True)
+            run_stage("tcell", args, pretrained)
 
 
 if __name__ == "__main__":

@@ -96,7 +96,7 @@ def save_checkpoint(path, spec_h, spec_t, h_cell, t_cell, optimizer, config, epo
 def main():
     parser = ArgumentParser(description="Fine-tune REwarp on cam5+cam4 and cam5+cam3")
     parser.add_argument("--config", default="configs/train/drive_tcell.yaml")
-    parser.add_argument("--dataset", default=None, choices=["nuscenes", "lyft", "widedrive3"])
+    parser.add_argument("--dataset", default=None, choices=["nuscenes", "lyft", "lyft1920", "lyft1224", "widedrive3"])
     parser.add_argument("--stage", choices=("hcell", "tcell"), default="tcell")
     parser.add_argument("--gpu", default="0")
     parser.add_argument("--epochs", type=int, default=None)
@@ -111,7 +111,7 @@ def main():
     with open(args.config) as handle:
         config = yaml.load(handle, Loader=yaml.FullLoader)
     name = args.dataset or config.get("dataset", "nuscenes")
-    defaults = {"nuscenes": 1, "lyft": 3, "widedrive3": 3}
+    defaults = {"nuscenes": 1, "lyft": 3, "lyft1920": 3, "lyft1224": 3, "widedrive3": 3}
     spec = config["train_dataset"]
     spec["dataset"]["args"]["dataset"] = name
     if args.samples:
