@@ -152,6 +152,10 @@ def stitch_frame(
         return True
 
     images = [stitch_core.process_image(str(path)) for path in paths]
+    input_size = spec.get("input_size")
+    if input_size:
+        in_w, in_h = input_size
+        images = [stitch_core.resize_input(image, in_w, in_h) for image in images]
     ref_h, ref_w = images[0].shape[-2:]
 
     if models is None:

@@ -54,6 +54,8 @@ Datasets are read from `REWARP_DATA_ROOT` (default
 `nuscenes`, `lyft1920`, `lyft1224`, `widedrive3` (with sparse GT) and `ddad`
 (images only, stitch only).
 
+Source cameras are resized before stitching, matching the compared model: `518x294` for nuScenes, lyft1920, and WideDrive3, and `518x434` for lyft1224. The metric crop is then three of those widths.
+
 Stitch one frame (run inside the `rewarp` conda environment):
 
 ```

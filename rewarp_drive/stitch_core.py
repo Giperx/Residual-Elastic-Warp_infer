@@ -65,6 +65,13 @@ def process_image(img_path, device=None):
     return tensor.unsqueeze(0).to(device if device is not None else DEVICE)
 
 
+def resize_input(tensor, width, height):
+    """Resize a stitch input to ``width`` by ``height`` before any warping."""
+    if tensor.shape[-1] == width and tensor.shape[-2] == height:
+        return tensor
+    return F.interpolate(tensor, size=(height, width), mode="bilinear", align_corners=False)
+
+
 def load_models(checkpoint=None, device=None):
     checkpoint = Path(checkpoint) if checkpoint is not None else CHECKPOINT
     device = device if device is not None else DEVICE

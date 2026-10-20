@@ -46,6 +46,7 @@ DATASETS = {
         "images": "nuscenes/processed_10Hz_v2",
         "gt": "nuscenes/sparseWideFOVImages3_1554x294",
         "size": (1554, 294),
+        "input_size": (518, 294),
         "cam": 5,
         "val_list": "nuscenes/processed_10Hz_v2/nuScenes_Val.txt",
     },
@@ -53,6 +54,7 @@ DATASETS = {
         "images": "lyft/lyft_val1920_3cams",
         "gt": "lyft/1920_sparseWideFOVImages3_1554x294",
         "size": (1554, 294),
+        "input_size": (518, 294),
         "cam": 5,
         "val_list": "lyft/lyft_val1920_3cams/lyft_val1920.txt",
     },
@@ -60,6 +62,7 @@ DATASETS = {
         "images": "lyft/lyft_val1224_3cams",
         "gt": "lyft/1224_sparseWideFOVImages3_1554x434",
         "size": (1554, 434),
+        "input_size": (518, 434),
         "cam": 5,
         "val_list": "lyft/lyft_val1224_3cams/lyft_val1224.txt",
     },
@@ -67,6 +70,7 @@ DATASETS = {
         "images": "WideDrive3_processed/WideDriveVal",
         "gt": "WideDrive_processed/sparseWideFOVImages3_1554x294",
         "size": (1554, 294),
+        "input_size": (518, 294),
         "cam": 2,  # camera 2 is only the GT filename; stitching still uses 5/4/3
         "direct": True,  # dense virtual GT: no histogram matching
         "val_list": "WideDrive3_processed/WideDriveVal/val.txt",
